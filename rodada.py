@@ -15,7 +15,7 @@ class rodada:
 
         # Guarda quem ficou sem moedas ao fim da rodada.
         eliminados = []
-
+        #teste
         print("\nResultados: ")
         for participante in self.participantes:
             # Sorteia um valor para cada participante.
