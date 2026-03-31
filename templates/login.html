@@ -12,13 +12,7 @@
 
     <main class="login-shell">
         <section class="card login-card">
-            <p class="eyebrow">Sala de apostas em rede local</p>
-            <h1>Digite seu nome</h1>
-            <p class="hero-text">
-                Se o nome for <strong>admin</strong>, voce entra no painel de criacao de salas.
-                Qualquer outro nome abre a area do jogador.
-            </p>
-
+            <h1>Nickname</h1>
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <section class="flash-stack">

@@ -52,7 +52,7 @@ class ServidorApostas:
                     return sala
             return None
 
-    # Cria uma nova sala com configuracoes iniciais e temporizadores zerados.
+    # Cria uma nova sala com configuracoes iniciaiS.
     def criar_sala(self, nome, capacidade, aposta):
         with self.lock:
             sala_id = self.proximo_id_sala

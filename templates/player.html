@@ -12,17 +12,21 @@
 
     <main class="page-shell">
         <section class="hero card">
-            <div>
-                <p class="eyebrow">Area do jogador</p>
+            <div class="player-hero">
+                <p class="eyebrow">Jogador</p>
                 <h1>{{ estado.jogador.getnome() }}</h1>
-                <p class="hero-text">
-                    Saldo atual: <strong>{{ estado.jogador.getsaldo() }} moedas</strong>. Escolha uma sala ativa e ingresse quando quiser.
-                </p>
             </div>
             <div class="button-group admin-actions">
+                <div class="balance-card balance-card-right" aria-label="Saldo atual">
+                    <span class="balance-label">Saldo</span>
+                    <div class="balance-main">
+                        <strong class="balance-value">{{ estado.jogador.getsaldo() }}</strong>
+                        <span class="balance-currency">moedas</span>
+                    </div>
+                </div>
                 {% if estado.sala_atual %}
                     <div class="connection-box">
-                        <span>Sala atual</span>
+                        <span>Na sala</span>
                         <strong>{{ estado.sala_atual.nome }}</strong>
                         <small>
                             {{ estado.sala_atual.participantes|length }} / {{ estado.sala_atual.capacidade }} jogadores

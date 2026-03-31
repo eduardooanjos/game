@@ -37,5 +37,5 @@ class Jogador:
         }
 
 
-# Alias para manter compatibilidade com o codigo anterior.
+#manter compatibilidade com o codigo anterior.
 jogador = Jogador
