@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogador | Sala de Apostas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="background-glow background-glow-one"></div>
+    <div class="background-glow background-glow-two"></div>
+
+    <main class="page-shell">
+        <section class="hero card">
+            <div>
+                <p class="eyebrow">Area do jogador</p>
+                <h1>{{ estado.jogador.getnome() }}</h1>
+                <p class="hero-text">
+                    Saldo atual: <strong>{{ estado.jogador.getsaldo() }} moedas</strong>. Escolha uma sala ativa e ingresse quando quiser.
+                </p>
+            </div>
+            <div class="button-group admin-actions">
+                {% if estado.sala_atual %}
+                    <div class="connection-box">
+                        <span>Sala atual</span>
+                        <strong>{{ estado.sala_atual.nome }}</strong>
+                        <small>
+                            {{ estado.sala_atual.participantes|length }} / {{ estado.sala_atual.capacidade }} jogadores
+                            | aposta {{ estado.sala_atual.aposta }} moedas
+                            {% if estado.sala_atual.tempo_restante is not none %}
+                                | {{ estado.sala_atual.tempo_restante }}s para sortear
+                            {% endif %}
+                        </small>
+                    </div>
+                    <a class="button" href="{{ url_for('ver_sala', sala_id=estado.sala_atual.id) }}">Entrar na sala</a>
+                    <form action="{{ url_for('sair_sala') }}" method="post">
+                        <button class="button button-secondary" type="submit">Sair da sala</button>
+                    </form>
+                {% endif %}
+            </div>
+        </section>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <section class="flash-stack">
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        <section class="grid">
+            <article class="card">
+                <h2>Salas ativas</h2>
+                {% if estado.salas_ativas %}
+                    <div class="rooms-grid">
+                        {% for sala in estado.salas_ativas %}
+                            <section class="room-card">
+                                <div class="room-header">
+                                    <div>
+                                        <p class="room-badge">Sala #{{ sala.id }}</p>
+                                        <h3>{{ sala.nome }}</h3>
+                                        <p class="muted">{{ sala.participantes|length }} / {{ sala.capacidade }} jogadores</p>
+                                        <p class="muted">Aposta: {{ sala.aposta }} moedas</p>
+                                    </div>
+                                </div>
+
+                                <div class="participants">
+                                    {% if sala.participantes %}
+                                        {% for participante in sala.participantes %}
+                                            <div class="participant-chip">
+                                                <strong>{{ participante.nome }}</strong>
+                                                <span>{{ participante.moedas }} moedas</span>
+                                            </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <p class="muted">Aguardando jogadores.</p>
+                                    {% endif %}
+                                </div>
+
+                                {% if estado.sala_atual and estado.sala_atual.id == sala.id %}
+                                    <a class="button" href="{{ url_for('ver_sala', sala_id=sala.id) }}">Abrir sala</a>
+                                {% elif estado.sala_atual %}
+                                    <button class="button button-ghost" type="button" disabled>Ja esta em outra sala</button>
+                                {% else %}
+                                    <form action="{{ url_for('entrar_sala', sala_id=sala.id) }}" method="post">
+                                        <button class="button" type="submit">Ingressar</button>
+                                    </form>
+                                {% endif %}
+
+                                {% if sala.tempo_restante is not none %}
+                                    <div class="result-box">
+                                        <p><strong>Timer:</strong> {{ sala.tempo_restante }} segundos</p>
+                                    </div>
+                                {% endif %}
+
+                                {% if sala.ultima_rodada %}
+                                    <div class="result-box">
+                                        <p><strong>Maior valor:</strong> {{ sala.ultima_rodada.maior }}</p>
+                                        <p><strong>Vencedores:</strong> {{ sala.ultima_rodada.vencedores|join(', ') }}</p>
+                                        <p><strong>Premio total:</strong> {{ sala.ultima_rodada.premio_total }} moedas</p>
+                                    </div>
+                                {% endif %}
+                            </section>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">Nenhuma sala ativa no momento. Aguarde o admin criar uma nova sala.</p>
+                {% endif %}
+            </article>
+
+            <article class="card">
+                <h2>Ranking geral</h2>
+                {% if estado.ranking %}
+                    <div class="ranking-list">
+                        {% for jogador in estado.ranking %}
+                            <div class="ranking-item">
+                                <span>{{ loop.index }}. {{ jogador.nome }}</span>
+                                <strong>{{ jogador.moedas }} moedas</strong>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">Ainda nao ha jogadores no sistema.</p>
+                {% endif %}
+            </article>
+        </section>
+    </main>
+</body>
+</html>

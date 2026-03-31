@@ -1,78 +1,80 @@
-# Jogo de Rodadas em Python
+# Sala de Apostas em Rede Local
 
-Projeto simples em Python desenvolvido para a disciplina de **Redes de Computadores**.
+Projeto em Python para a disciplina de **Redes de Computadores**.
 
-O programa simula salas com jogadores, sorteia um valor para cada participante e atualiza o saldo de moedas a cada rodada.
+Agora o sistema funciona como um **servidor web local**, onde varios jogadores podem entrar pelo navegador na mesma rede, informar o nickname e participar da sala de aposta. Toda a logica fica centralizada no servidor.
+
+## O que o servidor faz
+
+- abre a sala atual de aposta
+- cadastra novos jogadores automaticamente com **100 moedas**
+- recupera o saldo de quem ja existe no sistema
+- aceita ate **4 jogadores** por sala
+- executa o sorteio da rodada
+- atualiza saldos
+- elimina jogadores com saldo zerado
+- abre uma nova sala depois de cada sorteio
 
 ## Como executar
 
-Abra o terminal na pasta do projeto e rode:
+1. Instale as dependencias:
+
+2. Inicie o servidor:
 
 ```bash
-python main.py
+python app.py
 ```
 
 Se o comando `python` nao funcionar no seu computador, tente:
 
 ```bash
-py main.py
+py app.py
 ```
 
-## Como usar
+## Como acessar pela rede local
 
-Ao iniciar o programa, ele perguntara:
+Quando o servidor iniciar, abra no navegador:
 
 ```text
-Abrir nova sala? (s/n)
+http://127.0.0.1:5000
 ```
 
-Digite:
-
-- `s` para abrir uma nova sala
-- `n` para encerrar o programa
-
-Depois disso, o sistema pedira os nicknames dos jogadores:
-
-```text
-Nickname do jogador 1:
-Nickname do jogador 2:
-...
-```
-
-## Regras da entrada de jogadores
-
-- Cada sala aceita ate **4 jogadores**.
-- Sao necessarios pelo menos **2 jogadores** para a rodada acontecer.
-- Se um jogador ja existir no sistema, ele entra com o saldo que ja possuia.
-- Se o nickname ainda nao existir, o jogador sera criado com **100 moedas**.
-- Se nao quiser mais adicionar jogadores na sala, basta **pressionar Enter com o nome em branco**.
-
-## Como funciona a rodada
-
-- Cada jogador recebe um numero aleatorio de **1 a 10**.
-- Quem tirar o maior valor ganha **100 moedas**.
-- Quem perder, perde **50 moedas**.
-- Se houver empate no maior valor, todos os empatados vencem a rodada.
-
-## Eliminacao de jogador
-
-Quando o saldo de um jogador chegar a **0 moedas**, o sistema exibira uma mensagem informando a derrota e a conta sera excluida do cadastro.
+Para outros computadores ou celulares na mesma rede, use o IP local da maquina que esta executando o servidor. A propria pagina tambem mostra esse endereco.
 
 Exemplo:
 
 ```text
-Jogador Carlos perdeu, conta excluida!
+http://192.168.0.15:5000
 ```
+
+## Fluxo do jogador
+
+1. O jogador abre a pagina web.
+2. Informa o nickname.
+3. Se ainda nao existir, o cadastro e criado.
+4. Se ja existir, o saldo e carregado.
+5. O jogador entra na sala atual.
+6. O servidor executa o sorteio da rodada.
+
+## Regras da rodada
+
+- cada jogador recebe um numero aleatorio de **1 a 10**
+- quem tirar o maior valor ganha **100 moedas**
+- quem perder, perde **50 moedas**
+- em caso de empate no maior valor, todos os empatados vencem
+- quem chegar a **0 moedas** e removido do sistema
 
 ## Observacoes importantes
 
-- O cadastro dos jogadores fica armazenado apenas enquanto o programa estiver aberto.
-- Ao fechar o programa, os dados sao perdidos, pois nao existe salvamento em arquivo ou banco de dados.
-- O mesmo nickname nao pode entrar duas vezes na mesma sala.
-- Depois de cada rodada, o programa mostra o saldo atual dos participantes e o saldo geral dos jogadores ainda cadastrados.
+- os dados ficam em memoria enquanto o servidor estiver ligado
+- ao encerrar o servidor, os cadastros e saldos sao perdidos
+- a logica do jogo fica toda no backend
+- a interface web serve apenas para os jogadores entrarem e visualizarem a sala
 
-## Estrutura dos arquivos
+## Estrutura principal
 
-- `main.py`: controla a abertura das salas e o cadastro dos jogadores
-- `rodada.py`: executa a logica de cada rodada
-- `jogador.py`: define os atributos e metodos de cada jogador
+- `app.py`: servidor Flask com as rotas web, sala atual e controle da partida
+- `jogador.py`: classe que representa cada jogador e seu saldo
+- `rodada.py`: logica do sorteio e atualizacao dos saldos
+- `templates/index.html`: pagina principal
+- `static/styles.css`: estilo visual da interface

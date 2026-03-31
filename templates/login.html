@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrada | Sala de Apostas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="centered-body">
+    <div class="background-glow background-glow-one"></div>
+    <div class="background-glow background-glow-two"></div>
+
+    <main class="login-shell">
+        <section class="card login-card">
+            <p class="eyebrow">Sala de apostas em rede local</p>
+            <h1>Digite seu nome</h1>
+            <p class="hero-text">
+                Se o nome for <strong>admin</strong>, voce entra no painel de criacao de salas.
+                Qualquer outro nome abre a area do jogador.
+            </p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <section class="flash-stack">
+                        {% for category, message in messages %}
+                            <div class="flash flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </section>
+                {% endif %}
+            {% endwith %}
+
+            <form action="{{ url_for('login') }}" method="post" class="login-form">
+                <input id="nickname" name="nickname" type="text" maxlength="20" placeholder="Digite seu nome" required autofocus>
+                <button class="button" type="submit">Continuar</button>
+            </form>
+
+            <div class="connection-box compact-box">
+                <span>Endereco local</span>
+                <strong>http://{{ ip_local }}:5000</strong>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
