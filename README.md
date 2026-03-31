@@ -2,29 +2,19 @@
 
 Projeto em Python para a disciplina de **Redes de Computadores**.
 
-Agora o sistema funciona como um **servidor web local**, onde varios jogadores podem entrar pelo navegador na mesma rede, informar o nickname e participar da sala de aposta. Toda a logica fica centralizada no servidor.
-
-## O que o servidor faz
-
-- abre a sala atual de aposta
-- cadastra novos jogadores automaticamente com **100 moedas**
-- recupera o saldo de quem ja existe no sistema
-- aceita ate **4 jogadores** por sala
-- executa o sorteio da rodada
-- atualiza saldos
-- elimina jogadores com saldo zerado
-- abre uma nova sala depois de cada sorteio
-
 ## Como executar
 
 1. Instale as dependencias:
+
+```bash
+pip install flask
+```
 
 2. Inicie o servidor:
 
 ```bash
 python app.py
 ```
-
 Se o comando `python` nao funcionar no seu computador, tente:
 
 ```bash
@@ -37,14 +27,6 @@ Quando o servidor iniciar, abra no navegador:
 
 ```text
 http://127.0.0.1:5000
-```
-
-Para outros computadores ou celulares na mesma rede, use o IP local da maquina que esta executando o servidor. A propria pagina tambem mostra esse endereco.
-
-Exemplo:
-
-```text
-http://192.168.0.15:5000
 ```
 
 ## Fluxo do jogador
