@@ -1,41 +1,19 @@
-from dataclasses import dataclass
-
-
-# Representa um jogador com nome, saldo atual e ultimo valor sorteado.
-@dataclass
 class Jogador:
-    nome: str
-    moedas: int = 100
-    result: int = 0
+    def __init__(self, nome, saldo_inicial=100):
+        self.nome = nome
+        self.saldo = saldo_inicial
 
-    # Mantem os nomes de metodos antigos para facilitar o reaproveitamento.
-    def getsaldo(self):
-        return self.moedas
-
-    # Retorna o nickname do jogador.
     def getnome(self):
         return self.nome
 
-    # Retorna o ultimo valor sorteado na rodada.
-    def getresult(self):
-        return self.result
+    def getsaldo(self):
+        return self.saldo
 
-    # Atualiza o valor sorteado do jogador.
-    def setresult(self, result):
-        self.result = result
+    def adicionar_saldo(self, valor):
+        self.saldo += valor
 
-    # Atualiza o saldo atual de moedas.
-    def setmoedas(self, moedas):
-        self.moedas = moedas
+    def subtrair_saldo(self, valor):
+        self.saldo -= valor
 
-    # Converte o jogador para dicionario para facilitar o uso em JSON e templates.
     def to_dict(self):
-        return {
-            "nome": self.nome,
-            "moedas": self.moedas,
-            "resultado": self.result,
-        }
-
-
-#manter compatibilidade com o codigo anterior.
-jogador = Jogador
+        return {"nome": self.nome, "saldo": self.saldo}

@@ -1,8 +1,6 @@
-import os
 import time
+import threading
 from threading import RLock
-
-from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 
 from Comunicador import Comunicador
 from jogador import Jogador
@@ -11,17 +9,6 @@ from rodada import Rodada
 ROOM_TIMER_SECONDS, DRAW_TIMER_SECONDS = 30, 6
 MIN_CAPACITY, MAX_CAPACITY, MIN_BET, MAX_BET = 2, 20, 1, 1000
 
-
-# Encapsula o canal de mensagens usado pelo flash da interface.
-class Mensageiro:
-    def __init__(self, canal):
-        self.a, self.b = Comunicador(canal), Comunicador(canal)
-
-    def enviar(self, mensagem):
-        self.a.enviarMensagem(mensagem)
-        return self.b.receberMensagem()
-
-# Centraliza jogadores, salas e transicoes da partida.
 class ServidorApostas:
     def __init__(self):
         self.jogadores, self.salas, self.proximo_id, self.lock = {}, {}, 1, RLock()
@@ -62,7 +49,6 @@ class ServidorApostas:
             self.proximo_id += 1
             return sala
 
-    # Valida a entrada e inicia o timer quando a sala recebe o primeiro jogador.
     def entrar(self, sala_id, nickname):
         with self.lock:
             sala, jogador = self.salas.get(sala_id), self.jogador(nickname, True)
@@ -85,7 +71,6 @@ class ServidorApostas:
             sala["timer"] = sala["timer"] or time.time()
             return True, f"Entrada confirmada na sala {sala['nome']}."
 
-    # Impede saida durante o sorteio e nos segundos finais antes dele.
     def sair(self, nickname):
         with self.lock:
             sala = self.sala_do_jogador(nickname)
@@ -101,7 +86,6 @@ class ServidorApostas:
                 sala["fase"], sala["timer"] = "aguardando", None
             return True, f"Voce saiu da sala {sala['nome']}."
 
-    # Executa o sorteio da rodada e remove jogadores zerados.
     def executar_rodada(self, sala):
         if len(sala["participantes"]) < 2:
             sala["fase"], sala["sorteio"], sala["timer"] = "aguardando", None, time.time() if sala["participantes"] else None
@@ -113,7 +97,6 @@ class ServidorApostas:
         sala["rodada"], sala["ultimos"] = resultado, list(sala["participantes"])
         sala["participantes"], sala["timer"], sala["sorteio"], sala["fase"] = [], None, None, "resultado"
 
-    # Move a sala entre espera, sorteio e resultado de acordo com os timers.
     def sincronizar(self):
         with self.lock:
             for sala in self.salas.values():
@@ -135,7 +118,6 @@ class ServidorApostas:
             sala["ativa"], sala["participantes"], sala["ultimos"], sala["timer"], sala["sorteio"] = False, [], [], None, None
             return True, f"Sala {sala['nome']} encerrada."
 
-    # Reaproveita os dados da ultima rodada quando a sala ja exibiu o resultado.
     def participantes(self, sala, ultimos=False):
         if ultimos and sala["rodada"]:
             resultados = {i["nome"]: i["valor"] for i in sala["rodada"].get("resultados", [])}
@@ -159,20 +141,17 @@ class ServidorApostas:
             "pode_sair": sala["fase"] != "sorteando" and (restante is None or restante >= 10),
         }
 
-    # Entrega ao admin a visao completa das salas e do ranking.
     def estado_admin(self):
         with self.lock:
             salas = [self.dados_sala(s, s["fase"] == "resultado") for s in self.salas.values()]
             return {"salas": sorted(salas, key=lambda s: s["id"]), "ranking": self.ranking()}
 
-    # Entrega ao jogador as salas abertas, a sala atual e o ranking.
     def estado_jogador(self, nickname):
         with self.lock:
             atual = self.sala_do_jogador(nickname)
             ativas = [self.dados_sala(s) for s in self.salas.values() if s["ativa"]]
             return {"jogador": self.jogadores.get(nickname), "sala_atual": None if not atual else self.dados_sala(atual), "salas_ativas": ativas, "ranking": self.ranking()}
 
-    # So permite abrir a sala para quem participa dela ou acabou de jogar nela.
     def estado_sala(self, sala_id, nickname):
         with self.lock:
             sala = self.salas.get(sala_id)
@@ -180,183 +159,100 @@ class ServidorApostas:
                 return None
             return {"jogador": self.jogadores.get(nickname), "sala": self.dados_sala(sala, sala["fase"] == "resultado")}
 
-
-app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "redes-local-secret")
-servidor, mensageiro = ServidorApostas(), Mensageiro("sala-apostas-interface")
-
-
-# Retorna o nickname salvo na sessao atual.
-def nick():
-    return session.get("nickname", "").strip()
-
-
-# Identifica se a sessao atual pertence ao admin.
-def admin():
-    return nick().lower() == "admin"
-
-
-# Encaminha mensagens para a interface sem acoplar as rotas ao comunicador.
-def msg(texto, categoria):
-    flash(mensageiro.enviar(texto), categoria)
-
-
-# Redireciona cada perfil para sua pagina principal.
-def destino():
-    return redirect(url_for("painel_admin" if admin() else "painel_jogador"))
-
-
-# Aproveita o host da requisicao para exibir o endereco de acesso.
-def endereco():
-    return request.host.split(":")[0].strip() or "127.0.0.1"
-
-
-
-
-
-
-
-
-
-
-
-#================
-#=====Rotas======
-#================
-
-
-@app.context_processor
-def contexto():
-    nome = nick()
-    return {"ip_local": endereco(), "nickname_sessao": nome, "jogador_logado": servidor.jogador(nome) if nome else None, "usuario_admin": admin()}
-
-
-@app.get("/")
-def index():
-    servidor.sincronizar()
-    return render_template("login.html") if not nick() else destino()
-
-
-@app.post("/login")
-def login():
-    nome = request.form.get("nickname", "").strip()
-    if not nome:
-        msg("Informe um nome para entrar no sistema.", "erro")
-        return redirect(url_for("index"))
-    session["nickname"] = nome
-    if nome.lower() == "admin":
-        msg("Acesso de administrador liberado.", "sucesso")
-        return redirect(url_for("painel_admin"))
-    criado = servidor.jogador(nome) is None
-    jogador = servidor.jogador(nome, True)
-    texto = f"Jogador {jogador.getnome()} cadastrado com {jogador.getsaldo()} moedas." if criado else f"Bem-vindo de volta, {jogador.getnome()}. Saldo carregado: {jogador.getsaldo()} moedas."
-    msg(texto, "sucesso")
-    return redirect(url_for("painel_jogador"))
-
-
-@app.post("/logout")
-def logout():
-    session.pop("nickname", None)
-    msg("Sessao encerrada neste navegador.", "sucesso")
-    return redirect(url_for("index"))
-
-
-@app.get("/admin")
-def painel_admin():
-    servidor.sincronizar()
-    if not admin():
-        msg("Apenas o admin pode acessar essa area.", "erro")
-        return redirect(url_for("index"))
-    return render_template("admin.html", estado=servidor.estado_admin())
-
-
-@app.post("/admin/salas")
-def criar_sala():
-    if not admin():
-        msg("Apenas o admin pode criar salas.", "erro")
-        return redirect(url_for("index"))
-    nome = request.form.get("nome", "").strip()
-    if not nome:
-        msg("Informe um nome para a sala.", "erro")
-        return redirect(url_for("painel_admin"))
-    try:
-        capacidade, aposta = int(request.form.get("capacidade", 4)), int(request.form.get("aposta", 50))
-    except ValueError:
-        msg("Capacidade e aposta devem ser numeros inteiros.", "erro")
-        return redirect(url_for("painel_admin"))
-    if not MIN_CAPACITY <= capacidade <= MAX_CAPACITY:
-        msg(f"A capacidade deve ficar entre {MIN_CAPACITY} e {MAX_CAPACITY} jogadores.", "erro")
-        return redirect(url_for("painel_admin"))
-    if not MIN_BET <= aposta <= MAX_BET:
-        msg(f"A aposta deve ficar entre {MIN_BET} e {MAX_BET} moedas.", "erro")
-        return redirect(url_for("painel_admin"))
-    sala = servidor.criar_sala(nome, capacidade, aposta)
-    msg(f"Sala {sala['nome']} criada com capacidade para {capacidade} jogadores e aposta de {aposta} moedas.", "sucesso")
-    return redirect(url_for("painel_admin"))
-
-
-@app.post("/admin/salas/<int:sala_id>/encerrar")
-def encerrar_sala(sala_id):
-    if not admin():
-        msg("Apenas o admin pode encerrar salas.", "erro")
-        return redirect(url_for("index"))
-    ok, texto = servidor.encerrar(sala_id)
-    msg(texto, "sucesso" if ok else "erro")
-    return redirect(url_for("painel_admin"))
-
-
-@app.get("/jogador")
-def painel_jogador():
-    servidor.sincronizar()
-    if not nick():
-        msg("Informe seu nome para continuar.", "erro")
-        return redirect(url_for("index"))
-    if admin():
-        return redirect(url_for("painel_admin"))
-    return render_template("player.html", estado=servidor.estado_jogador(nick()))
-
-
-@app.post("/salas/<int:sala_id>/entrar")
-def entrar_sala(sala_id):
-    if not nick() or admin():
-        msg("Somente jogadores podem entrar em salas.", "erro")
-        return redirect(url_for("index"))
-    ok, texto = servidor.entrar(sala_id, nick())
-    msg(texto, "sucesso" if ok else "erro")
-    return redirect(url_for("ver_sala", sala_id=sala_id) if ok else url_for("painel_jogador"))
-
-
-@app.post("/salas/sair")
-def sair_sala():
-    if not nick() or admin():
-        msg("Somente jogadores podem sair de salas.", "erro")
-        return redirect(url_for("index"))
-    ok, texto = servidor.sair(nick())
-    msg(texto, "sucesso" if ok else "erro")
-    return redirect(url_for("painel_jogador"))
-
-
-@app.get("/salas/<int:sala_id>")
-def ver_sala(sala_id):
-    servidor.sincronizar()
-    if not nick() or admin():
-        msg("Somente jogadores podem acessar a sala.", "erro")
-        return redirect(url_for("index"))
-    estado = servidor.estado_sala(sala_id, nick())
-    if not estado:
-        msg("Essa sala nao esta disponivel para voce no momento.", "erro")
-        return redirect(url_for("painel_jogador"))
-    return render_template("room.html", estado=estado)
-
-
-@app.get("/api/salas/<int:sala_id>/estado")
-def api_estado_sala(sala_id):
-    servidor.sincronizar()
-    if not nick() or admin():
-        return jsonify({"erro": "nao_autorizado"}), 403
-    estado = servidor.estado_sala(sala_id, nick())
-    return (jsonify({"erro": "sala_indisponivel"}), 404) if not estado else jsonify(estado["sala"])
-
+def handle_client(id, servidor):
+    com = Comunicador(id)
+    nick = None
+    while True:
+        try:
+            msg = com.receberMensagem()
+            parts = msg.split()
+            if not parts:
+                continue
+            cmd = parts[0].lower()
+            if cmd == "login":
+                if len(parts) < 2:
+                    response = "Usage: login <nickname>"
+                else:
+                    nick = parts[1]
+                    jogador = servidor.jogador(nick, True)
+                    response = f"Logged in as {nick}, saldo {jogador.getsaldo()}"
+            elif cmd == "list":
+                salas = [f"{s['id']}: {s['nome']} ({len(s['participantes'])}/{s['capacidade']}) aposta {s['aposta']}" for s in servidor.salas.values() if s["ativa"]]
+                response = "\n".join(salas) if salas else "No active rooms"
+            elif cmd == "create":
+                if nick != "admin":
+                    response = "Only admin can create rooms"
+                elif len(parts) < 4:
+                    response = "Usage: create <name> <capacity> <bet>"
+                else:
+                    try:
+                        name, cap, bet = parts[1], int(parts[2]), int(parts[3])
+                        if not (MIN_CAPACITY <= cap <= MAX_CAPACITY):
+                            response = f"Capacity must be between {MIN_CAPACITY} and {MAX_CAPACITY}"
+                        elif not (MIN_BET <= bet <= MAX_BET):
+                            response = f"Bet must be between {MIN_BET} and {MAX_BET}"
+                        else:
+                            sala = servidor.criar_sala(name, cap, bet)
+                            response = f"Room {sala['nome']} created with id {sala['id']}"
+                    except ValueError:
+                        response = "Capacity and bet must be numbers"
+            elif cmd == "join":
+                if not nick:
+                    response = "Login first"
+                elif len(parts) < 2:
+                    response = "Usage: join <room_id>"
+                else:
+                    try:
+                        room_id = int(parts[1])
+                        ok, texto = servidor.entrar(room_id, nick)
+                        response = texto
+                    except ValueError:
+                        response = "Room id must be a number"
+            elif cmd == "leave":
+                if not nick:
+                    response = "Login first"
+                else:
+                    ok, texto = servidor.sair(nick)
+                    response = texto
+            elif cmd == "status":
+                if not nick:
+                    response = "Login first"
+                else:
+                    estado = servidor.estado_jogador(nick)
+                    response = f"Player: {estado['jogador']}\nCurrent room: {estado['sala_atual']}\nActive rooms: {len(estado['salas_ativas'])}\nRanking: {estado['ranking'][:5]}"  # simple
+            elif cmd == "close":
+                if nick != "admin":
+                    response = "Only admin can close rooms"
+                elif len(parts) < 2:
+                    response = "Usage: close <room_id>"
+                else:
+                    try:
+                        room_id = int(parts[1])
+                        ok, texto = servidor.encerrar(room_id)
+                        response = texto
+                    except ValueError:
+                        response = "Room id must be a number"
+            else:
+                response = "Unknown command. Available: login, list, create, join, leave, status, close"
+            com.enviarMensagem(response)
+        except Exception as e:
+            com.enviarMensagem(f"Error: {str(e)}")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    servidor = ServidorApostas()
+    # Create some initial rooms for demo
+    servidor.criar_sala("Sala1", 4, 10)
+    servidor.criar_sala("Sala2", 3, 20)
+    # Start sync thread
+    def sync_loop():
+        while True:
+            servidor.sincronizar()
+            time.sleep(1)
+    threading.Thread(target=sync_loop, daemon=True).start()
+    # Start client handlers
+    for i in range(1, 5):  # up to 4 clients
+        threading.Thread(target=handle_client, args=(f"client{i}", servidor), daemon=True).start()
+    print("Server started. Clients can connect with ids client1 to client4")
+    # Keep main thread alive
+    while True:
+        time.sleep(1)
