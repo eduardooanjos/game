@@ -1,38 +1,24 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Entrada | Sala de Apostas</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-<body class="centered-body">
-    <div class="background-glow background-glow-one"></div>
-    <div class="background-glow background-glow-two"></div>
-
-    <main class="login-shell">
-        <section class="card login-card">
-            <h1>Nickname</h1>
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <section class="flash-stack">
-                        {% for category, message in messages %}
-                            <div class="flash flash-{{ category }}">{{ message }}</div>
-                        {% endfor %}
-                    </section>
-                {% endif %}
-            {% endwith %}
-
-            <form action="{{ url_for('login') }}" method="post" class="login-form">
-                <input id="nickname" name="nickname" type="text" maxlength="20" placeholder="Digite seu nome" required autofocus>
-                <button class="button" type="submit">Continuar</button>
-            </form>
-
-            <div class="connection-box compact-box">
-                <span>Endereco local</span>
-                <strong>http://{{ ip_local }}:5000</strong>
-            </div>
-        </section>
+<body>
+    <main>
+        <h1>Entrar</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="{{ category }}">{{ message }}</p>
+            {% endfor %}
+        {% endwith %}
+        <form action="{{ url_for('login') }}" method="post">
+            <input name="nickname" placeholder="Nome" maxlength="20" required>
+            <button>Entrar</button>
+        </form>
+        <p>Endereco: http://{{ ip_local }}:5000</p>
     </main>
 </body>
 </html>

@@ -1,130 +1,54 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin | Sala de Apostas</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <div class="background-glow background-glow-one"></div>
-    <div class="background-glow background-glow-two"></div>
-
-    <main class="page-shell">
-        <section class="hero card">
-            <div>
-                <p class="eyebrow">Admin</p>
-                <h1>Salas</h1>
-            </div>
-            <div class="button-group admin-actions">
-                <div class="connection-box">
-                    <span>Endereco</span>
-                    <strong>http://{{ ip_local }}:5000</strong>
-                </div>
-                <form action="{{ url_for('logout') }}" method="post">
-                    <button class="button button-ghost" type="submit">Sair do admin</button>
-                </form>
-            </div>
-        </section>
-
+    <main>
+        <h1>Admin</h1>
+        <p>Endereco: http://{{ ip_local }}:5000</p>
+        <form action="{{ url_for('logout') }}" method="post"><button>Sair</button></form>
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <section class="flash-stack">
-                    {% for category, message in messages %}
-                        <div class="flash flash-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </section>
-            {% endif %}
+            {% for category, message in messages %}
+                <p class="{{ category }}">{{ message }}</p>
+            {% endfor %}
         {% endwith %}
-
-        <section class="grid">
-            <article class="card">
-                <h2>Nova sala</h2>
-                <form action="{{ url_for('criar_sala') }}" method="post" class="login-form">
-                    <label for="nome">Nome</label>
-                    <input id="nome" name="nome" type="text" maxlength="30" required>
-
-                    <label for="capacidade">Capacidade</label>
-                    <input id="capacidade" name="capacidade" type="number" min="2" max="20" value="4" required>
-
-                    <label for="aposta">Aposta</label>
-                    <input id="aposta" name="aposta" type="number" min="1" max="1000" value="50" required>
-
-                    <button class="button" type="submit">Criar sala</button>
-                </form>
-            </article>
-
-            <article class="card">
-                <h2>Ranking geral</h2>
-                {% if estado.ranking %}
-                    <div class="ranking-list">
-                        {% for jogador in estado.ranking %}
-                            <div class="ranking-item">
-                                <span>{{ loop.index }}. {{ jogador.nome }}</span>
-                                <strong>{{ jogador.moedas }} moedas</strong>
-                            </div>
-                        {% endfor %}
-                    </div>
+        <h2>Criar sala</h2>
+        <form action="{{ url_for('criar_sala') }}" method="post">
+            <input name="nome" placeholder="Nome" maxlength="30" required>
+            <input name="capacidade" type="number" min="2" max="20" value="4" required>
+            <input name="aposta" type="number" min="1" max="1000" value="50" required>
+            <button>Criar</button>
+        </form>
+        <h2>Ranking</h2>
+        {% for jogador in estado.ranking %}
+            <p>{{ loop.index }}. {{ jogador.nome }} - {{ jogador.moedas }} moedas</p>
+        {% else %}
+            <p>Sem jogadores.</p>
+        {% endfor %}
+        <h2>Salas</h2>
+        {% for sala in estado.salas %}
+            <section>
+                <p><strong>{{ sala.nome }}</strong> - {{ sala.participantes|length }}/{{ sala.capacidade }} - aposta {{ sala.aposta }}</p>
+                <p>Fase: {{ sala.fase }}{% if sala.tempo_restante is not none %} - {{ sala.tempo_restante }}s{% endif %}</p>
+                {% for participante in sala.participantes %}
+                    <p>{{ participante.nome }} - {{ participante.moedas }} moedas</p>
                 {% else %}
-                    <p class="muted">Nenhum jogador cadastrado ainda.</p>
+                    <p>Sem jogadores.</p>
+                {% endfor %}
+                {% if sala.ultima_rodada %}
+                    <p>Maior: {{ sala.ultima_rodada.maior }} | Premio: {{ sala.ultima_rodada.premio_total }}</p>
                 {% endif %}
-            </article>
-        </section>
-
-        <section class="stack">
-            <article class="card">
-                <h2>Salas</h2>
-                {% if estado.salas %}
-                    <div class="rooms-grid">
-                        {% for sala in estado.salas %}
-                            <section class="room-card">
-                                <div class="room-header">
-                                    <div>
-                                        <p class="room-badge">{{ "Ativa" if sala.ativa else "Encerrada" }}</p>
-                                        <h3>{{ sala.nome }}</h3>
-                                        <p class="muted">{{ sala.participantes|length }} / {{ sala.capacidade }}</p>
-                                        <p class="muted">{{ sala.aposta }} moedas</p>
-                                        {% if sala.tempo_restante is not none %}
-                                            <p class="muted">{{ sala.tempo_restante }}s</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-
-                                <div class="participants">
-                                    {% if sala.participantes %}
-                                        {% for participante in sala.participantes %}
-                                            <div class="participant-chip">
-                                                <strong>{{ participante.nome }}</strong>
-                                                <span>{{ participante.moedas }} moedas</span>
-                                            </div>
-                                        {% endfor %}
-                                    {% else %}
-                                        <p class="muted">Nenhum jogador nesta sala.</p>
-                                    {% endif %}
-                                </div>
-
-                                {% if sala.ultima_rodada %}
-                                    <div class="result-box">
-                                        <p><strong>{{ sala.ultima_rodada.maior }}</strong></p>
-                                        <p>{{ sala.ultima_rodada.premio_total }} moedas</p>
-                                    </div>
-                                {% endif %}
-
-                                {% if sala.ativa %}
-                                    <div class="button-group room-actions">
-                                        <form action="{{ url_for('encerrar_sala', sala_id=sala.id) }}" method="post">
-                                            <button class="button button-ghost" type="submit">Encerrar sala</button>
-                                        </form>
-                                    </div>
-                                {% endif %}
-                            </section>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="muted">Nenhuma sala criada ate agora.</p>
+                {% if sala.ativa %}
+                    <form action="{{ url_for('encerrar_sala', sala_id=sala.id) }}" method="post"><button>Encerrar</button></form>
                 {% endif %}
-            </article>
-        </section>
+            </section>
+        {% else %}
+            <p>Sem salas.</p>
+        {% endfor %}
     </main>
 </body>
 </html>

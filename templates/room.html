@@ -1,232 +1,43 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ estado.sala.nome }} | Sala de Apostas</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ estado.sala.nome }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <div class="background-glow background-glow-one"></div>
-    <div class="background-glow background-glow-two"></div>
-
-    <main class="page-shell room-shell">
-        <section class="hero hero-room card">
-            <div class="hero-room-info">
-                <p class="eyebrow">Sala ativa</p>
-                <h1>{{ estado.sala.nome }}</h1>
-                <div class="bet-banner" id="bet-banner">
-                    <span>Aposta da sala</span>
-                    <strong>{{ estado.sala.aposta }} moedas</strong>
-                </div>
-            </div>
-            <div class="hero-room-timer">
-                <div class="timer-panel" id="timer-panel">
-                    <div class="timer-ring">
-                        <svg viewBox="0 0 120 120" class="timer-ring-svg" aria-hidden="true">
-                            <circle class="timer-ring-track" cx="60" cy="60" r="48"></circle>
-                            <circle class="timer-ring-progress" id="timer-ring-progress" cx="60" cy="60" r="48"></circle>
-                        </svg>
-                        <div class="timer-ring-content">
-                            <strong id="countdown">{{ estado.sala.tempo_restante if estado.sala.tempo_restante is not none else 30 }}s</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="button-group admin-actions hero-room-actions">
-                <a class="button button-ghost" href="{{ url_for('painel_jogador') }}">Voltar para salas</a>
-                <form action="{{ url_for('sair_sala') }}" method="post">
-                    <button class="button button-secondary" id="leave-room-button" type="submit">Sair da sala</button>
-                </form>
-            </div>
-        </section>
-
+    <main>
+        <h1>{{ estado.sala.nome }}</h1>
+        <p id="info">Aposta {{ estado.sala.aposta }} | Fase {{ estado.sala.fase }}</p>
+        <p id="tempo">Tempo: {{ estado.sala.tempo_restante if estado.sala.tempo_restante is not none else 0 }}s</p>
+        <a href="{{ url_for('painel_jogador') }}">Voltar</a>
+        <form action="{{ url_for('sair_sala') }}" method="post"><button id="sair">Sair da sala</button></form>
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <section class="flash-stack">
-                    {% for category, message in messages %}
-                        <div class="flash flash-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </section>
-            {% endif %}
+            {% for category, message in messages %}
+                <p class="{{ category }}">{{ message }}</p>
+            {% endfor %}
         {% endwith %}
-
-        <section class="card slot-stage-card">
-            <div class="slot-stage" id="slot-stage"></div>
-        </section>
+        <div id="lista">
+            {% for participante in estado.sala.participantes %}
+                <p>{{ participante.nome }} - {{ participante.moedas }} moedas{% if participante.resultado is defined %} - valor {{ participante.resultado }}{% endif %}</p>
+            {% else %}
+                <p>Sem jogadores.</p>
+            {% endfor %}
+        </div>
     </main>
-
     <script>
-        const roomId = {{ estado.sala.id }};
-        const countdownElement = document.getElementById("countdown");
-        const timerPanelElement = document.getElementById("timer-panel");
-        const timerRingProgressElement = document.getElementById("timer-ring-progress");
-        const betBannerElement = document.getElementById("bet-banner");
-        const slotStageElement = document.getElementById("slot-stage");
-        const leaveRoomButtonElement = document.getElementById("leave-room-button");
-
-        let roomState = {{ estado.sala|tojson }};
-        let lastSlotSignature = "";
-
-        function formatSeconds(value) {
-            return `${Math.max(0, value)}s`;
+        const sala={{ estado.sala.id }},tempo=document.getElementById("tempo"),info=document.getElementById("info"),lista=document.getElementById("lista"),sair=document.getElementById("sair");
+        async function atualizar(){
+            const r=await fetch(`/api/salas/${sala}/estado`,{cache:"no-store"});
+            if(!r.ok){if(r.status===404)location="{{ url_for('painel_jogador') }}";return}
+            const s=await r.json(),t=s.fase==="sorteando"?(s.tempo_sorteio??0):(s.tempo_restante??0);
+            info.textContent=`Aposta ${s.aposta} | Fase ${s.fase}`;
+            tempo.textContent=`Tempo: ${t}s`;
+            sair.disabled=s.pode_sair===false;
+            lista.innerHTML=(s.participantes||[]).map(p=>`<p>${p.nome} - ${p.moedas} moedas${p.resultado!==undefined?` - valor ${p.resultado}`:""}</p>`).join("")||"<p>Sem jogadores.</p>";
         }
-
-        function resultMap(state) {
-            const resultados = (state.ultima_rodada && state.ultima_rodada.resultados) || [];
-            return Object.fromEntries(resultados.map((resultado) => [resultado.nome, resultado.valor]));
-        }
-
-        function slotMarkup(participante, state) {
-            const results = resultMap(state);
-            const valor = results[participante.nome];
-            const vencedores = state.ultima_rodada ? state.ultima_rodada.vencedores : [];
-            const winnerClass = vencedores.includes(participante.nome) ? " is-winner" : "";
-            const currentValue = valor === undefined ? "?" : valor;
-            const prevValue = valor === undefined ? 9 : valor === 1 ? 10 : valor - 1;
-            const nextValue = valor === undefined ? 2 : valor === 10 ? 1 : valor + 1;
-            const resultMarkup = valor === undefined
-                ? `
-                    <div class="slot-reel slot-reel-spinning">
-                        <span>1</span>
-                        <span>2</span>
-                        <span>3</span>
-                        <span>4</span>
-                        <span>5</span>
-                        <span>6</span>
-                        <span>7</span>
-                        <span>8</span>
-                        <span>9</span>
-                        <span>10</span>
-                        <span>1</span>
-                        <span>2</span>
-                        <span>3</span>
-                        <span>4</span>
-                        <span>5</span>
-                        <span>6</span>
-                        <span>7</span>
-                        <span>8</span>
-                        <span>9</span>
-                        <span>10</span>
-                    </div>
-                `
-                : `
-                    <div class="slot-reel slot-reel-result">
-                        <span>${prevValue}</span>
-                        <span class="slot-result-value">${currentValue}</span>
-                        <span>${nextValue}</span>
-                    </div>
-                `;
-
-            return `
-                <article class="slot-player${winnerClass}">
-                    <div class="slot-machine ${state.fase === "sorteando" ? "is-drawing" : state.fase === "resultado" ? "is-result" : "is-waiting"}">
-                        <div class="slot-window">
-                            ${resultMarkup}
-                        </div>
-                    </div>
-                    <strong class="slot-player-name">${participante.nome}</strong>
-                    <span class="slot-player-balance">${participante.moedas} moedas</span>
-                </article>
-            `;
-        }
-
-        function renderSlots(state) {
-            const participantes = state.participantes || [];
-            slotStageElement.innerHTML = participantes.length
-                ? participantes.map((participante) => slotMarkup(participante, state)).join("")
-                : '<div class="slot-empty">Aguardando jogadores para preencher as roletas.</div>';
-        }
-
-        function buildSlotSignature(state) {
-            const participantes = state.participantes || [];
-            const resultados = state.ultima_rodada ? state.ultima_rodada.resultados : [];
-            return JSON.stringify({
-                fase: state.fase,
-                participantes: participantes.map((item) => [item.nome, item.moedas]),
-                resultados,
-            });
-        }
-
-        function applyPhaseVisuals(state) {
-            timerPanelElement.classList.remove("is-locked", "is-drawing", "is-result");
-
-            if (state.fase === "aguardando") {
-                leaveRoomButtonElement.disabled = state.pode_sair === false;
-            } else if (state.fase === "sorteando") {
-                leaveRoomButtonElement.disabled = true;
-                timerPanelElement.classList.add("is-drawing");
-            } else if (state.fase === "resultado") {
-                leaveRoomButtonElement.disabled = false;
-                timerPanelElement.classList.add("is-result");
-            }
-
-            betBannerElement.innerHTML = `<span>Aposta da sala</span><strong>${state.aposta} moedas</strong>`;
-        }
-
-        function renderCountdown(state) {
-            if (state.fase === "aguardando") {
-                if (state.tempo_restante === null) {
-                    countdownElement.textContent = "--";
-                    timerRingProgressElement.style.strokeDashoffset = "301.6";
-                } else {
-                    countdownElement.textContent = formatSeconds(state.tempo_restante);
-                    const progress = Math.max(0, Math.min(1, state.tempo_restante / 30));
-                    timerRingProgressElement.style.strokeDashoffset = `${301.6 * (1 - progress)}`;
-                    if (state.tempo_restante < 10) {
-                        timerPanelElement.classList.add("is-locked");
-                    }
-                }
-                return;
-            }
-
-            if (state.fase === "sorteando") {
-                const restante = state.tempo_sorteio ?? 0;
-                countdownElement.textContent = formatSeconds(restante);
-                const progress = Math.max(0, Math.min(1, restante / 6));
-                timerRingProgressElement.style.strokeDashoffset = `${301.6 * (1 - progress)}`;
-                return;
-            }
-
-            countdownElement.textContent = "0s";
-            timerRingProgressElement.style.strokeDashoffset = "0";
-        }
-
-        function renderState(state) {
-            roomState = state;
-            const slotSignature = buildSlotSignature(state);
-            if (slotSignature !== lastSlotSignature) {
-                renderSlots(state);
-                lastSlotSignature = slotSignature;
-            }
-            renderCountdown(state);
-            applyPhaseVisuals(state);
-        }
-
-        async function refreshRoomState() {
-            try {
-                const response = await fetch(`/api/salas/${roomId}/estado`, {
-                    headers: { "Accept": "application/json" },
-                    cache: "no-store",
-                });
-
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        window.location.href = "{{ url_for('painel_jogador') }}";
-                        return;
-                    }
-                    throw new Error("Falha ao atualizar a sala.");
-                }
-
-                const data = await response.json();
-                renderState(data);
-            } catch (error) {
-                countdownElement.textContent = roomState.fase === "resultado" ? "0s" : countdownElement.textContent;
-            }
-        }
-
-        renderState(roomState);
-        setInterval(refreshRoomState, 1000);
+        setInterval(atualizar,1000);
     </script>
 </body>
 </html>
