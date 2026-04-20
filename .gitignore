@@ -3,3 +3,5 @@ __pycache__/jogador.cpython-314.pyc
 requirements.txt
 __pycache__/app.cpython-314.pyc
 __pycache__/main.cpython-314.pyc
+__pycache__/server.cpython-314.pyc
+.ipc/
